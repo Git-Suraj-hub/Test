@@ -248,31 +248,67 @@
             formData: null
         };
 
-        // Track referral click
+        // Track referral click with shared storage
         function trackReferralClick() {
             const params = new URLSearchParams(window.location.search);
             const refId = params.get('ref');
             
             if (refId && refId !== userId) {
-                // Simulate getting visitor IP (in real app, this would be done server-side)
-                const visitorIP = 'ip_' + Math.random().toString(36).substr(2, 9);
+                // Generate unique device fingerprint
+                const deviceFingerprint = generateDeviceFingerprint();
                 
-                // Load referee's data
-                let refereeData = JSON.parse(localStorage.getItem('userData_' + refId)) || {
+                // Use shared localStorage key for cross-device simulation
+                const sharedKey = 'referralData_' + refId;
+                let refereeData = JSON.parse(localStorage.getItem(sharedKey)) || {
                     uniqueIPs: [],
                     formData: null
                 };
                 
-                // Check if IP is unique
-                if (!refereeData.uniqueIPs.includes(visitorIP)) {
-                    refereeData.uniqueIPs.push(visitorIP);
-                    localStorage.setItem('userData_' + refId, JSON.stringify(refereeData));
+                // Check if device is unique
+                if (!refereeData.uniqueIPs.includes(deviceFingerprint)) {
+                    refereeData.uniqueIPs.push(deviceFingerprint);
+                    localStorage.setItem(sharedKey, JSON.stringify(refereeData));
+                    
+                    // Also store in a global referral tracking object
+                    let globalReferrals = JSON.parse(localStorage.getItem('globalReferrals')) || {};
+                    if (!globalReferrals[refId]) {
+                        globalReferrals[refId] = [];
+                    }
+                    globalReferrals[refId].push({
+                        device: deviceFingerprint,
+                        timestamp: new Date().toISOString()
+                    });
+                    localStorage.setItem('globalReferrals', JSON.stringify(globalReferrals));
                     
                     // Show alert to visitor
-                    alert('Thank you for clicking the referral link! The referrer is now ' + 
-                          refereeData.uniqueIPs.length + '/10 towards unlocking their submit button.');
+                    alert('✅ Referral counted! The referrer now has ' + 
+                          refereeData.uniqueIPs.length + '/10 referrals.');
                 }
             }
+        }
+
+        // Generate unique device fingerprint
+        function generateDeviceFingerprint() {
+            const nav = window.navigator;
+            const screen = window.screen;
+            
+            const fingerprint = [
+                nav.userAgent,
+                nav.language,
+                screen.colorDepth,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset(),
+                Math.random().toString(36).substr(2, 9) // Random component for uniqueness
+            ].join('|');
+            
+            // Create hash-like ID
+            let hash = 0;
+            for (let i = 0; i < fingerprint.length; i++) {
+                const char = fingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return 'device_' + Math.abs(hash).toString(36);
         }
 
         // Update UI
@@ -342,5 +378,4 @@
         }, 2000);
     </script>
 </body>
-
 </html>
