@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Referral Registration Form2</title>
+    <title>Referral Registration Form</title>
     <style>
         * {
             margin: 0;
@@ -148,6 +148,11 @@
             display: block;
         }
 
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .info-text {
             color: #666;
             font-size: 14px;
@@ -165,6 +170,16 @@
             text-align: center;
         }
 
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+        }
+
         .referral-count {
             font-size: 18px;
             font-weight: bold;
@@ -172,11 +187,30 @@
             text-align: center;
             margin: 10px 0;
         }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            padding: 10px;
+        }
+
+        .setup-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Registration Form1</h1>
+        <div class="setup-warning" id="setupWarning">
+            ⚠️ Please configure Firebase settings in the code before using!
+        </div>
+
+        <h1>Registration Form</h1>
         <p class="subtitle">Complete your details and share with 10 friends</p>
 
         <form id="registrationForm">
@@ -199,7 +233,9 @@
                 <h3 style="color: #667eea; margin-bottom: 10px;">Share to Unlock Submit</h3>
                 <p style="font-size: 14px; color: #666;">Share your referral link with 10 unique people to unlock the submit button</p>
                 
-                <div class="referral-count" id="referralCount">0 / 10 Referrals</div>
+                <div class="referral-count" id="referralCount">
+                    <span class="loading">Loading...</span>
+                </div>
                 
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill">0%</div>
@@ -210,7 +246,7 @@
                     <button type="button" class="copy-btn" onclick="copyReferralLink()">Copy</button>
                 </div>
                 
-                <p class="info-text">Each unique IP address counts as 1 referral</p>
+                <p class="info-text">Each unique device counts as 1 referral</p>
             </div>
 
             <button type="submit" class="submit-btn" id="submitBtn">Submit Registration</button>
@@ -219,17 +255,59 @@
         <div class="success-message" id="successMessage">
             🎉 Registration submitted successfully!
         </div>
+
+        <div class="error-message" id="errorMessage"></div>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <script>
-        // Get or generate user ID from URL
+        // ==========================================
+        // FIREBASE CONFIGURATION
+        // ==========================================
+        // REPLACE THESE WITH YOUR FIREBASE CREDENTIALS
+        const firebaseConfig = {
+  apiKey: "AIzaSyBYw3uBeVFF7fOjkX0uvcKjoUSiGWVUotU",
+  authDomain: "referral-system-213b6.firebaseapp.com",
+  databaseURL: "https://referral-system-213b6-default-rtdb.firebaseio.com",
+  projectId: "referral-system-213b6",
+  storageBucket: "referral-system-213b6.firebasestorage.app",
+  messagingSenderId: "107040133860",
+  appId: "1:107040133860:web:26deaaf7751d99398e52f1"
+};
+
+        // Check if Firebase is configured
+        const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY_HERE";
+        
+        if (!isConfigured) {
+            document.getElementById('setupWarning').style.display = 'block';
+            console.error('⚠️ Firebase not configured! Please add your Firebase credentials.');
+        } else {
+            document.getElementById('setupWarning').style.display = 'none';
+        }
+
+        // Initialize Firebase
+        let database;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+        }
+
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+
+        // Generate unique user ID
         function getUserId() {
             const params = new URLSearchParams(window.location.search);
             let userId = params.get('ref');
             
             if (!userId) {
-                userId = 'user_' + Math.random().toString(36).substr(2, 9);
-                // Update URL without reload
+                userId = 'user_' + generateRandomId();
                 const newUrl = window.location.pathname + '?ref=' + userId;
                 window.history.replaceState({}, '', newUrl);
             }
@@ -237,147 +315,189 @@
             return userId;
         }
 
-        // Initialize
-        const userId = getUserId();
-        const referralLink = window.location.origin + window.location.pathname + '?ref=' + userId;
-        document.getElementById('referralLinkInput').value = referralLink;
-
-        // Simulate IP tracking (in memory for demo)
-        let userData = JSON.parse(localStorage.getItem('userData_' + userId)) || {
-            uniqueIPs: [],
-            formData: null
-        };
-
-        // Track referral click with shared storage
-        function trackReferralClick() {
-            const params = new URLSearchParams(window.location.search);
-            const refId = params.get('ref');
-            
-            if (refId && refId !== userId) {
-                // Generate unique device fingerprint
-                const deviceFingerprint = generateDeviceFingerprint();
-                
-                // Use shared localStorage key for cross-device simulation
-                const sharedKey = 'referralData_' + refId;
-                let refereeData = JSON.parse(localStorage.getItem(sharedKey)) || {
-                    uniqueIPs: [],
-                    formData: null
-                };
-                
-                // Check if device is unique
-                if (!refereeData.uniqueIPs.includes(deviceFingerprint)) {
-                    refereeData.uniqueIPs.push(deviceFingerprint);
-                    localStorage.setItem(sharedKey, JSON.stringify(refereeData));
-                    
-                    // Also store in a global referral tracking object
-                    let globalReferrals = JSON.parse(localStorage.getItem('globalReferrals')) || {};
-                    if (!globalReferrals[refId]) {
-                        globalReferrals[refId] = [];
-                    }
-                    globalReferrals[refId].push({
-                        device: deviceFingerprint,
-                        timestamp: new Date().toISOString()
-                    });
-                    localStorage.setItem('globalReferrals', JSON.stringify(globalReferrals));
-                    
-                    // Show alert to visitor
-                    alert('✅ Referral counted! The referrer now has ' + 
-                          refereeData.uniqueIPs.length + '/10 referrals.');
-                }
-            }
+        // Generate random ID
+        function generateRandomId() {
+            return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
         }
 
-        // Generate unique device fingerprint
+        // Generate device fingerprint
         function generateDeviceFingerprint() {
             const nav = window.navigator;
             const screen = window.screen;
             
-            const fingerprint = [
+            const components = [
                 nav.userAgent,
                 nav.language,
                 screen.colorDepth,
                 screen.width + 'x' + screen.height,
-                new Date().getTimezoneOffset(),
-                Math.random().toString(36).substr(2, 9) // Random component for uniqueness
+                new Date().getTimezoneOffset()
             ].join('|');
             
-            // Create hash-like ID
+            // Simple hash function
             let hash = 0;
-            for (let i = 0; i < fingerprint.length; i++) {
-                const char = fingerprint.charCodeAt(i);
+            for (let i = 0; i < components.length; i++) {
+                const char = components.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
                 hash = hash & hash;
             }
+            
             return 'device_' + Math.abs(hash).toString(36);
         }
 
-        // Update UI
-        function updateUI() {
-            const count = userData.uniqueIPs.length;
-            const percentage = Math.min((count / 10) * 100, 100);
+        // ==========================================
+        // MAIN LOGIC
+        // ==========================================
+
+        const userId = getUserId();
+        const deviceId = generateDeviceFingerprint();
+        const referralLink = window.location.origin + window.location.pathname + '?ref=' + userId;
+        
+        document.getElementById('referralLinkInput').value = referralLink;
+
+        // Track referral click
+        async function trackReferralClick() {
+            if (!isConfigured) return;
+
+            const params = new URLSearchParams(window.location.search);
+            const refId = params.get('ref');
             
-            document.getElementById('referralCount').textContent = count + ' / 10 Referrals';
-            document.getElementById('progressFill').style.width = percentage + '%';
-            document.getElementById('progressFill').textContent = Math.round(percentage) + '%';
-            
-            if (count >= 10) {
-                document.getElementById('submitBtn').classList.add('show');
+            // If visiting someone else's referral link
+            if (refId && refId !== userId) {
+                try {
+                    const referralRef = database.ref('referrals/' + refId + '/' + deviceId);
+                    const snapshot = await referralRef.once('value');
+                    
+                    // Only add if this device hasn't clicked before
+                    if (!snapshot.exists()) {
+                        await referralRef.set({
+                            timestamp: Date.now(),
+                            deviceId: deviceId
+                        });
+                        
+                        alert('✅ Thank you! Your click has been counted as a referral.');
+                    }
+                } catch (error) {
+                    console.error('Error tracking referral:', error);
+                }
             }
         }
 
-        // Copy referral link
+        // Update UI with current referral count
+        async function updateReferralCount() {
+            if (!isConfigured) {
+                document.getElementById('referralCount').innerHTML = '<span style="color: #ff6b6b;">Configure Firebase first</span>';
+                return;
+            }
+
+            try {
+                const referralRef = database.ref('referrals/' + userId);
+                const snapshot = await referralRef.once('value');
+                const referrals = snapshot.val() || {};
+                const count = Object.keys(referrals).length;
+                
+                document.getElementById('referralCount').textContent = count + ' / 10 Referrals';
+                
+                const percentage = Math.min((count / 10) * 100, 100);
+                document.getElementById('progressFill').style.width = percentage + '%';
+                document.getElementById('progressFill').textContent = Math.round(percentage) + '%';
+                
+                // Show submit button if 10 referrals reached
+                if (count >= 10) {
+                    document.getElementById('submitBtn').classList.add('show');
+                }
+            } catch (error) {
+                console.error('Error updating count:', error);
+                document.getElementById('referralCount').textContent = 'Error loading';
+            }
+        }
+
+        // Copy referral link to clipboard
         function copyReferralLink() {
             const input = document.getElementById('referralLinkInput');
             input.select();
-            document.execCommand('copy');
+            input.setSelectionRange(0, 99999); // For mobile
             
-            const btn = event.target;
-            const originalText = btn.textContent;
-            btn.textContent = 'Copied!';
-            setTimeout(() => {
-                btn.textContent = originalText;
-            }, 2000);
+            try {
+                document.execCommand('copy');
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy. Please copy manually.');
+            }
         }
 
-        // Form submission
-        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+        // Handle form submission
+        document.getElementById('registrationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            if (userData.uniqueIPs.length < 10) {
-                alert('Please share your referral link with 10 unique people before submitting.');
+            if (!isConfigured) {
+                showError('Please configure Firebase first!');
                 return;
             }
-            
-            const formData = {
-                name: document.getElementById('name').value,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value,
-                referrals: userData.uniqueIPs.length
-            };
-            
-            userData.formData = formData;
-            localStorage.setItem('userData_' + userId, JSON.stringify(userData));
-            
-            document.getElementById('successMessage').style.display = 'block';
-            this.reset();
-            
-            console.log('Form submitted:', formData);
+
+            try {
+                const referralRef = database.ref('referrals/' + userId);
+                const snapshot = await referralRef.once('value');
+                const referrals = snapshot.val() || {};
+                const count = Object.keys(referrals).length;
+                
+                if (count < 10) {
+                    showError('Please share your link with 10 unique people before submitting.');
+                    return;
+                }
+                
+                // Save form data
+                const formData = {
+                    name: document.getElementById('name').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value,
+                    referralCount: count,
+                    submittedAt: Date.now()
+                };
+                
+                await database.ref('submissions/' + userId).set(formData);
+                
+                document.getElementById('successMessage').style.display = 'block';
+                document.getElementById('errorMessage').style.display = 'none';
+                this.reset();
+                
+                console.log('Form submitted successfully:', formData);
+            } catch (error) {
+                console.error('Submission error:', error);
+                showError('Failed to submit. Please try again.');
+            }
         });
 
-        // Track click on page load
-        trackReferralClick();
-        updateUI();
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
 
-        // Refresh UI every 2 seconds to check for new referrals
-        setInterval(() => {
-            userData = JSON.parse(localStorage.getItem('userData_' + userId)) || {
-                uniqueIPs: [],
-                formData: null
-            };
-            updateUI();
-        }, 2000);
+        // ==========================================
+        // INITIALIZE
+        // ==========================================
+
+        // Track referral on page load
+        trackReferralClick();
+
+        // Update count on load
+        updateReferralCount();
+
+        // Listen for real-time updates (if configured)
+        if (isConfigured) {
+            database.ref('referrals/' + userId).on('value', () => {
+                updateReferralCount();
+            });
+        }
     </script>
 </body>
 </html>
-
-
