@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Registration Form</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .referral-section {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .referral-link {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .referral-link input {
+            flex: 1;
+            background: white;
+        }
+
+        .copy-btn {
+            padding: 12px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: none;
+        }
+
+        .submit-btn:hover {
+            background: #218838;
+        }
+
+        .submit-btn.show {
+            display: block;
+        }
+
+        .info-text {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+        }
+
+        .referral-count {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Registration Form</h1>
+        <p class="subtitle">Complete your details and share with 10 friends</p>
+
+        <form id="registrationForm">
+            <div class="form-group">
+                <label for="name">Full Name *</label>
+                <input type="text" id="name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" required>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number *</label>
+                <input type="tel" id="phone" required>
+            </div>
+
+            <div class="referral-section">
+                <h3 style="color: #667eea; margin-bottom: 10px;">Share to Unlock Submit</h3>
+                <p style="font-size: 14px; color: #666;">Share your referral link with 10 unique people to unlock the submit button</p>
+                
+                <div class="referral-count" id="referralCount">0 / 10 Referrals</div>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+
+                <div class="referral-link">
+                    <input type="text" id="referralLinkInput" readonly>
+                    <button type="button" class="copy-btn" onclick="copyReferralLink()">Copy</button>
+                </div>
+                
+                <p class="info-text">Each unique IP address counts as 1 referral</p>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">Submit Registration</button>
+        </form>
+
+        <div class="success-message" id="successMessage">
+            🎉 Registration submitted successfully!
+        </div>
+    </div>
+
+    <script>
+        // Get or generate user ID from URL
+        function getUserId() {
+            const params = new URLSearchParams(window.location.search);
+            let userId = params.get('ref');
+            
+            if (!userId) {
+                userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                // Update URL without reload
+                const newUrl = window.location.pathname + '?ref=' + userId;
+                window.history.replaceState({}, '', newUrl);
+            }
+            
+            return userId;
+        }
+
+        // Initialize
+        const userId = getUserId();
+        const referralLink = window.location.origin + window.location.pathname + '?ref=' + userId;
+        document.getElementById('referralLinkInput').value = referralLink;
+
+        // Simulate IP tracking (in memory for demo)
+        let userData = JSON.parse(localStorage.getItem('userData_' + userId)) || {
+            uniqueIPs: [],
+            formData: null
+        };
+
+        // Track referral click
+        function trackReferralClick() {
+            const params = new URLSearchParams(window.location.search);
+            const refId = params.get('ref');
+            
+            if (refId && refId !== userId) {
+                // Simulate getting visitor IP (in real app, this would be done server-side)
+                const visitorIP = 'ip_' + Math.random().toString(36).substr(2, 9);
+                
+                // Load referee's data
+                let refereeData = JSON.parse(localStorage.getItem('userData_' + refId)) || {
+                    uniqueIPs: [],
+                    formData: null
+                };
+                
+                // Check if IP is unique
+                if (!refereeData.uniqueIPs.includes(visitorIP)) {
+                    refereeData.uniqueIPs.push(visitorIP);
+                    localStorage.setItem('userData_' + refId, JSON.stringify(refereeData));
+                    
+                    // Show alert to visitor
+                    alert('Thank you for clicking the referral link! The referrer is now ' + 
+                          refereeData.uniqueIPs.length + '/10 towards unlocking their submit button.');
+                }
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            const count = userData.uniqueIPs.length;
+            const percentage = Math.min((count / 10) * 100, 100);
+            
+            document.getElementById('referralCount').textContent = count + ' / 10 Referrals';
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressFill').textContent = Math.round(percentage) + '%';
+            
+            if (count >= 10) {
+                document.getElementById('submitBtn').classList.add('show');
+            }
+        }
+
+        // Copy referral link
+        function copyReferralLink() {
+            const input = document.getElementById('referralLinkInput');
+            input.select();
+            document.execCommand('copy');
+            
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        }
+
+        // Form submission
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (userData.uniqueIPs.length < 10) {
+                alert('Please share your referral link with 10 unique people before submitting.');
+                return;
+            }
+            
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                referrals: userData.uniqueIPs.length
+            };
+            
+            userData.formData = formData;
+            localStorage.setItem('userData_' + userId, JSON.stringify(userData));
+            
+            document.getElementById('successMessage').style.display = 'block';
+            this.reset();
+            
+            console.log('Form submitted:', formData);
+        });
+
+        // Track click on page load
+        trackReferralClick();
+        updateUI();
+
+        // Refresh UI every 2 seconds to check for new referrals
+        setInterval(() => {
+            userData = JSON.parse(localStorage.getItem('userData_' + userId)) || {
+                uniqueIPs: [],
+                formData: null
+            };
+            updateUI();
+        }, 2000);
+    </script>
+</body>
+</html>
